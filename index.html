@@ -31,7 +31,18 @@
         </svg>
         <span>Франкенштейн<small>мастерская невероятных зверей</small></span>
       </a>
-      <div class="pill warn" id="net" role="status">Можно начинать</div>
+      <div class="header-actions">
+        <button
+          class="ghost small"
+          id="chat-toggle"
+          aria-controls="chat-panel"
+          aria-expanded="false"
+          disabled
+        >
+          Чат <span id="chat-unread" hidden></span>
+        </button>
+        <div class="pill warn" id="net" role="status">Можно начинать</div>
+      </div>
     </header>
     <main>
       <section class="screen on" id="scr-home">
@@ -43,8 +54,8 @@
             >
             <h1>Твоя часть.<br />Общий <span>шедевр.</span></h1>
             <p class="hero-description">
-              Кто-то рисует голову. Кто-то — лапы.<br />Никто не видит чужой
-              рисунок. В конце встречается<br class="desktop-break" />
+              У каждого свой участок и свой нелепый замысел.<br />Никто не видит
+              чужой рисунок. В конце встречается<br class="desktop-break" />
               зверь, которого ещё не было.
             </p>
             <div class="how-it-works">
@@ -150,6 +161,17 @@
               maxlength="32"
               autocomplete="nickname"
             />
+            <details id="avatar-chooser">
+              <summary>
+                <span id="my-avatar"></span><span>Выбрать своего человечка</span
+                ><span aria-hidden="true">⌄</span>
+              </summary>
+              <div
+                id="avatar-picker"
+                role="group"
+                aria-label="Выбор персонажа"
+              ></div>
+            </details>
             <button class="btn full-width" id="b-create">
               Создать комнату <span aria-hidden="true">↗</span>
             </button>
@@ -157,32 +179,15 @@
             <div class="join-row">
               <input
                 id="in-code"
-                placeholder="Вставь ссылку-приглашение"
+                placeholder="Код из 6 символов или ссылка"
                 maxlength="512"
                 autocomplete="off"
                 aria-label="Приглашение"
               /><button class="btn2" id="b-join">Войти →</button>
             </div>
-            <details class="network-settings">
-              <summary>Настройки соединения</summary>
-              <label for="in-broker">Адрес брокера</label
-              ><input
-                id="in-broker"
-                list="broker-list"
-                placeholder="Оставь пустым для обычной игры"
-              />
-              <p class="hint">
-                Все участники подключаются по адресу из приглашения. Свой сервер
-                не нужен.
-              </p>
-            </details>
-            <datalist id="broker-list">
-              <option
-                value="wss://public:public@public.cloud.shiftr.io"
-              ></option>
-              <option value="wss://broker.emqx.io:8084/mqtt"></option>
-              <option value="wss://broker.hivemq.com:8884/mqtt"></option>
-            </datalist>
+            <p class="hint" id="connection-help">
+              Комнаты с аватарами и чатом. Вход без регистрации.
+            </p>
           </div>
           <div class="workshop-card">
             <span class="section-number">02 / ПРИДУМЫВАЕМ</span>
@@ -233,6 +238,9 @@
               <div class="players" id="plist"></div>
             </div>
             <p class="hint" id="lobby-note"></p>
+            <button class="ghost full-width" id="b-leave">
+              Выйти из комнаты
+            </button>
           </div>
           <div class="card setup-card">
             <div id="host-word-box">
@@ -332,16 +340,28 @@
       <section class="screen" id="scr-game">
         <div class="game-heading">
           <div>
-            <span class="eyebrow">Рисуем вслепую</span>
+            <span class="eyebrow">Кажется, мы рисовали разное</span>
             <h1>Всё начинается с твоей части.</h1>
           </div>
           <div class="tag" id="progress-tag"></div>
         </div>
+        <div
+          class="game-crew"
+          id="game-crew"
+          aria-label="Художники комнаты"
+        ></div>
         <div class="game-workspace">
           <aside class="task-panel">
-            <span class="section-number">ТВОЁ ЗАДАНИЕ</span>
+            <span class="section-number" id="own-fragment">ТВОЙ УЧАСТОК</span>
+            <div id="turn-status" role="status"></div>
             <h2 id="who-tag">Твой фрагмент</h2>
+            <div class="secret-brief">
+              <span>ТВОЯ СЕКРЕТНАЯ ВЕРСИЯ</span>
+              <h3 id="task-concept"></h3>
+              <ul id="task-brief"></ul>
+            </div>
             <p id="task-instruction"></p>
+            <p id="task-notes" hidden></p>
             <div class="plan-heading">
               <h3>План зверя</h3>
               <span class="plan-legend"><i></i> Твоя часть</span>
@@ -437,6 +457,11 @@
             aria-label="Общий рисунок всех игроков"
           ></canvas>
         </div>
+        <div
+          class="reveal-briefs"
+          id="reveal-briefs"
+          aria-label="Кому какое задание досталось"
+        ></div>
         <div class="btnrow">
           <button class="btn2" id="b-download">Сохранить наш шедевр ↓</button
           ><button class="btn" id="b-again" style="display: none">
@@ -548,6 +573,36 @@
       <span>Собрано из дружбы и сомнительных художественных решений.</span
       ><span>Франкенштейн © 2026</span>
     </footer>
+    <aside id="chat-panel" class="chat-panel" hidden aria-label="Чат комнаты">
+      <div class="chat-heading">
+        <div>
+          <strong>Чат мастерской</strong
+          ><span>Комната <b id="chat-room-code"></b></span>
+        </div>
+        <button class="ghost" id="chat-close" aria-label="Закрыть чат">
+          ×
+        </button>
+      </div>
+      <div id="chat-messages" role="log" aria-live="polite"></div>
+      <form id="chat-form">
+        <label class="sr-only" for="chat-input">Сообщение</label
+        ><textarea
+          id="chat-input"
+          maxlength="300"
+          rows="2"
+          placeholder="Написать своим художникам…"
+        ></textarea
+        ><button
+          class="btn"
+          id="chat-send"
+          type="submit"
+          aria-label="Отправить сообщение"
+        >
+          ↑
+        </button>
+      </form>
+      <p class="chat-help">Enter — отправить · Shift+Enter — новая строка</p>
+    </aside>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="./src/main.js"></script>
   </body>

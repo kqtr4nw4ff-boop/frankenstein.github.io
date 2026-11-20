@@ -1,3 +1,6 @@
+import { claimTabIdentity } from "./tab-identity.js";
+import { playerStatus } from "./player-status.js";
+import { avatarElement } from "./avatars.js";
 import { SchemaDeck } from "./random.js";
 import { renderOverview, previewPlayers } from "./overview.js";
 import { SchemaEditor } from "./editor.js";
@@ -12,13 +15,10 @@ import {
 } from "./schemas.js";
 import "./styles.css";
 import { Game, id, TURN_MS } from "./game.js";
-import {
-  Network,
-  DEFAULT_BROKER,
-  invitation,
-  parseInvitation,
-  allowedBroker,
-} from "./network.js";
+import { FirebaseRoom } from "./firebase-room.js";
+import { parseRoomCode } from "./room-code.js";
+import { RoomUI } from "./room-ui.js";
+import { firebaseConfigured } from "./firebase-client.js";
 import { Drawing, PALETTE, paint } from "./drawing.js";
 const $ = (s) => document.querySelector(s);
 function read(key, fallback = "") {
@@ -33,17 +33,23 @@ function save(key, value) {
     sessionStorage.setItem(key, JSON.stringify(value));
   } catch {}
 }
-const me = { id: id(), name: "" }; // Every tab is a separate player, including duplicated tabs.
+const me = {
+  id: read("playerId") || id(),
+  name: "",
+  avatarId: +read("avatar", 0),
+};
+const identityReady = claimTabIdentity(me.id).then((id) => {
+  me.id = id;
+  save("playerId", id);
+});
 let net,
   game,
   state,
-  room,
-  broker,
-  token,
+  code = "",
   pending = null,
-  draftKey = "",
-  lastHost = 0,
-  joining = false;
+  draftKey = "";
+let connecting = false,
+  rosterSignature = "";
 let host = false,
   clockOffset = 0,
   editing = false;
@@ -64,6 +70,17 @@ function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $("#toast").classList.remove("on"), 4500);
 }
+const roomUI = new RoomUI({
+  avatarId: me.avatarId,
+  onAvatar: (id) => {
+    me.avatarId = id;
+    save("avatar", id);
+  },
+  onChat: (text) => net?.chat(text),
+  onLeave: () => leaveRoom(),
+  onKick: (pid) => net?.kick(pid),
+  toast,
+});
 function show(name) {
   document
     .querySelectorAll(".screen")
@@ -101,9 +118,7 @@ function apply(next) {
   clockOffset = host ? 0 : next.sentAt - Date.now();
   const oldRound = state?.round;
   state = next;
-  lastHost = Date.now();
-  joining = false;
-  const key = `draft:${room}:${state.round}:${me.id}`;
+  const key = `draft:${code}:${state.round}:${me.id}`;
   if (oldRound !== state.round) {
     pending = null;
     draftKey = key;
@@ -113,11 +128,10 @@ function apply(next) {
   render();
 }
 function broadcast() {
-  const snapshot = { ...game.snapshot(), sentAt: Date.now() };
+  if (!game || !net) return;
+  const snapshot = { ...game.snapshot(me.id), sentAt: net.now() };
   apply(snapshot);
-  for (const p of snapshot.players)
-    if (p.id !== me.id)
-      net?.send(`out/${p.id}`, { type: "state", state: snapshot });
+  net.publish(game);
 }
 function incoming(path, m) {
   if (host) {
@@ -133,98 +147,233 @@ function incoming(path, m) {
         });
     } else if (m.type === "submit" && game.submit(m)) broadcast();
   } else if (m.type === "state") apply(m.state);
-  else if (m.type === "heartbeat") {
-    lastHost = Date.now();
-    status("На связи", "ok");
-    if (state && m.revision > state.revision)
-      net.send(`in/${me.id}`, { type: "join", pid: me.id, name: me.name });
-  } else if (m.type === "error") {
-    joining = false;
+  else if (m.type === "error") {
     toast(m.message);
   }
 }
-function connect(asHost, data) {
-  net?.close();
-  host = asHost;
+async function connect(asHost, data = {}) {
+  if (connecting) return;
+  connecting = true;
+  await identityReady;
+  await net?.close();
+  net = null;
   state = null;
-  pending = null;
   game = null;
-  ({ room, broker } = data);
-  token = invitation(room, broker);
+  pending = null;
+  rosterSignature = "";
+  host = asHost;
   me.name =
-    $("#in-name").value.trim().slice(0, 32) || (host ? "Хост" : "Игрок");
+    $("#in-name").value.trim().slice(0, 32) ||
+    (asHost ? "Ведущий" : "Художник");
   save("name", me.name);
-  if (host) game = new Game(me);
-  joining = true;
-  status("Подключаемся…");
+  status("Входим в комнату…");
   $("#b-create").disabled = $("#b-join").disabled = true;
-  net = new Network({
-    room,
-    broker,
-    pid: me.id,
-    host,
-    onMessage: incoming,
-    onStatus: status,
-    onReady: () => {
-      $("#b-create").disabled = $("#b-join").disabled = false;
-      if (host) broadcast();
-      else net.send(`in/${me.id}`, { type: "join", pid: me.id, name: me.name });
-    },
-  });
-  setTimeout(() => {
+  try {
+    net = await FirebaseRoom.open({
+      host: asHost,
+      room: data.room,
+      pid: me.id,
+      name: me.name,
+      avatarId: me.avatarId,
+      onStatus: status,
+      onError: (e) => toast(roomError(e)),
+    });
+    code = net.code;
+    host = net.isHost;
+    if (host) {
+      const stored = await net.engine();
+      game = stored
+        ? Game.restore(stored, () => net.now())
+        : new Game(me, () => net.now());
+    }
+    state = {
+      phase: "lobby",
+      players: [],
+      hostId: net.meta.hostId,
+      revision: -1,
+      round: "",
+    };
+    roomUI.room({ code, pid: me.id, host, hostId: net.meta.hostId });
+    net.listen({
+      onMessage: incoming,
+      onMembers: (members) => {
+        roomUI.members(members);
+        if (!members.some((p) => p.id === me.id)) {
+          leaveRoom(false);
+          toast("Ты больше не в этой комнате");
+          return;
+        }
+        if (host && game) {
+          const signature = JSON.stringify(
+            members.map((p) => [p.id, p.name, p.avatarId, p.online]),
+          );
+          if (signature !== rosterSignature) {
+            rosterSignature = signature;
+            syncRoster(members);
+            broadcast();
+          }
+        }
+      },
+      onChat: (messages) => roomUI.chat(messages),
+      onError: (e) => toast(roomError(e)),
+      onClosed: () => {
+        leaveRoom(false);
+        toast("Ведущий закрыл комнату");
+      },
+    });
+    save("activeRoom", code);
+    history.replaceState(null, "", "#" + code);
+    render();
+    if (host) broadcast();
+    else net.send(`in/${me.id}`, { type: "join", pid: me.id, name: me.name });
+  } catch (e) {
+    await net?.close();
+    net = null;
+    host = false;
+    game = null;
+    state = null;
+    status("Не удалось войти", "err");
+    toast(roomError(e));
+    show("home");
+  } finally {
+    connecting = false;
     $("#b-create").disabled = $("#b-join").disabled = false;
-    if (joining)
-      toast(
-        "Комната не отвечает. Проверьте приглашение и открытую вкладку хоста.",
-      );
-  }, 12000);
+  }
+}
+function syncRoster(members) {
+  if (game.state.phase === "play")
+    for (const p of game.state.players)
+      if (!members.some((m) => m.id === p.id)) {
+        p.online = false;
+        if (!p.done && game.state.turn?.pid === p.id) {
+          p.done = true;
+          game.next();
+        }
+      }
+  if (game.state.phase === "lobby")
+    game.state.players = game.state.players.filter((p) =>
+      members.some((m) => m.id === p.id),
+    );
+  for (const m of members) {
+    game.join(m);
+    const p = game.state.players.find((p) => p.id === m.id);
+    if (p) {
+      p.name = m.name;
+      p.avatarId = m.avatarId;
+      p.online = m.online;
+    }
+  }
+}
+function roomError(error) {
+  const value = String(error?.code || error?.message || error);
+  if (value.includes("operation-not-allowed"))
+    return "В Firebase нужно включить Authentication → Anonymous.";
+  if (/permission.denied|PERMISSION_DENIED/i.test(value))
+    return "Правила Realtime Database пока не дают доступ. Нужно опубликовать правила проекта.";
+  if (value.includes("invalid-api-key"))
+    return "Не подходят настройки Firebase. Проверь firebaseConfig.";
+  return (
+    error?.message ||
+    "Не удалось подключиться. Проверь сеть и попробуй ещё раз."
+  );
+}
+async function leaveRoom(destroy = true) {
+  const current = net;
+  net = null;
+  if (current && destroy && host)
+    await current.destroy().catch((e) => toast(roomError(e)));
+  if (current && destroy && !host)
+    await current.leave().catch((e) => toast(roomError(e)));
+  await current?.close();
+  state = null;
+  game = null;
+  pending = null;
+  host = false;
+  save("activeRoom", "");
+  roomUI.clear();
+  history.replaceState(null, "", location.pathname + location.search);
+  show("home");
+  status("Можно начинать");
 }
 function render() {
   if (editing) return;
   show(state.phase === "play" ? "game" : state.phase);
-  $("#code-big").textContent = room.slice(0, 6).toUpperCase();
+  $("#code-big").textContent = code;
   const invite = new URL(location.href);
-  invite.hash = token;
+  invite.hash = code;
   $("#invite-field").value = invite.href;
   $("#host-word-box").hidden = !host;
   $("#host-word-box").style.display = host ? "block" : "none";
   $("#wait-box").style.display = host ? "none" : "block";
   $("#host-start-row").style.display = host ? "flex" : "none";
   $("#p-count").textContent = `· ${state.players.length}`;
-  $("#plist").replaceChildren(
-    ...state.players.map((p) => {
-      const el = document.createElement("div");
-      el.className = "tag";
-      el.textContent = p.name + (p.id === me.id ? " (ты)" : "");
-      return el;
-    }),
-  );
+  roomUI.activePid = state.turn?.pid;
+  roomUI.members(net?.members || []);
   $("#b-start").disabled = state.players.length < 2;
   $("#b-start").textContent =
     state.players.length < 2 ? "Нужно хотя бы 2 игрока" : "Начать";
   $("#lobby-note").textContent =
     "До 8 игроков. Каждый получает один фрагмент; общий рисунок откроется в финале.";
   $("#who-tag").textContent = own()?.task
-    ? `Фрагмент ${own().strip + 1} из ${count()}: ${own().task.label}`
+    ? own().task.label
     : "Зритель · участие со следующего раунда";
-  $("#task-instruction").textContent = own()?.task?.instruction || "";
+  const task = own()?.task,
+    view = playerStatus(state, me.id, {
+      pending: !!pending,
+      now: Date.now() + clockOffset,
+    });
+  $("#own-fragment").textContent = task
+    ? `Твой участок №${own().strip + 1} из ${count()}`
+    : "Участие со следующего раунда";
+  $("#turn-status").textContent = view.title;
+  $("#turn-status").dataset.kind = view.kind;
+  $("#task-instruction").textContent = task?.instruction || "";
+  $("#task-concept").textContent = task?.concept?.title || "";
+  $("#task-brief").replaceChildren(
+    ...(task?.briefs || []).map((b) => {
+      const e = document.createElement("li");
+      const label = document.createElement("strong");
+      label.textContent = b.label + ": ";
+      e.append(label, document.createTextNode(b.text));
+      return e;
+    }),
+  );
+  $("#task-notes").textContent = (task?.notes || []).join("\n");
+  $("#task-notes").hidden = !task?.notes?.length;
   $("#progress-tag").textContent =
-    `Сдано ${state.players.filter((p) => p.strip >= 0 && p.done).length} из ${count()}`;
+    `Готовы ${state.players.filter((p) => p.strip >= 0 && p.done).length} из ${count()}`;
   $("#wait-overlay").classList.toggle("hide", !!canDraw());
   $("#toolbar").style.opacity = canDraw() ? 1 : 0.35;
   $("#b-done").disabled = !canDraw();
   $("#b-undo").disabled = !canDraw();
-  $("#ov-text").textContent = pending
-    ? "Отправляем рисунок…"
-    : own()?.done
-      ? "Готово! Ждём остальных…"
-      : `Рисует ${state.players.find((p) => p.id === state.turn?.pid)?.name || "следующий игрок"}`;
+  $("#ov-text").textContent = view.overlay;
   renderOverview($("#scheme-overview"), state.players, me.id);
   renderSchemaPreview();
   drawing.render();
   if (state.phase === "reveal" && state.reveal) {
     $("#reveal-word").textContent = state.reveal.word;
     paint($("#cv2"), state.reveal.strips);
+    $("#reveal-briefs").replaceChildren(
+      ...[...state.reveal.strips]
+        .sort((a, b) => a.strip - b.strip)
+        .map((part) => {
+          const card = document.createElement("article");
+          card.className = "reveal-brief";
+          const head = document.createElement("div"),
+            name = document.createElement("strong"),
+            role = document.createElement("span"),
+            concept = document.createElement("p");
+          head.append(avatarElement(part.avatarId));
+          name.textContent = part.artist || "Художник";
+          role.textContent = part.task.label;
+          const info = document.createElement("div");
+          info.append(name, role);
+          head.append(info);
+          concept.textContent = part.task.concept?.title || "";
+          card.append(head, concept);
+          return card;
+        }),
+    );
     $("#b-again").style.display = host ? "inline-block" : "none";
   }
 }
@@ -254,20 +403,12 @@ function sendPending() {
     if (game.submit(pending)) broadcast();
   } else net.send(`in/${me.id}`, pending);
 }
-$("#b-create").onclick = () => {
-  try {
-    const url = $("#in-broker").value.trim() || DEFAULT_BROKER;
-    if (!allowedBroker(url)) throw Error("Нужен адрес wss://");
-    connect(true, { room: id().replaceAll("-", ""), broker: url });
-  } catch (e) {
-    toast(e.message);
-  }
-};
+$("#b-create").onclick = () => connect(true);
 $("#b-join").onclick = () => {
   try {
-    connect(false, parseInvitation($("#in-code").value));
-  } catch {
-    toast("Вставьте приглашение или ссылку целиком");
+    connect(false, { room: parseRoomCode($("#in-code").value) });
+  } catch (e) {
+    toast(e.message);
   }
 };
 $("#b-start").onclick = () => {
@@ -284,6 +425,7 @@ $("#b-start").onclick = () => {
 $("#b-again").onclick = () => {
   if (host) {
     game.again();
+    syncRoster(net.members);
     if ($("#random-each-round").checked) rollRandomSchema();
     broadcast();
   }
@@ -306,7 +448,7 @@ for (const color of PALETTE) {
 }
 $("#b-copy").onclick = async () => {
   const url = new URL(location.href);
-  url.hash = token;
+  url.hash = code;
   try {
     await navigator.clipboard.writeText(url.href);
     toast("Приглашение скопировано");
@@ -318,7 +460,7 @@ $("#b-copy").onclick = async () => {
 };
 $("#b-download").onclick = () => {
   const a = document.createElement("a");
-  a.download = `frankenstein-${room.slice(0, 6)}.png`;
+  a.download = `frankenstein-${code}.png`;
   a.href = $("#cv2").toDataURL();
   a.click();
 };
@@ -330,23 +472,13 @@ $("#in-word").addEventListener("keydown", (e) => {
 });
 $("#in-name").value = read("name");
 if (location.hash) $("#in-code").value = location.hash.slice(1);
+if (location.hash && read("activeRoom") === location.hash.slice(1))
+  setTimeout(() => connect(false, { room: location.hash.slice(1) }), 0);
 setInterval(() => {
   if (host && game && net?.client.connected) {
     if (game.tick()) broadcast();
-    for (const p of game.state.players)
-      if (p.id !== me.id)
-        net.send(`out/${p.id}`, {
-          type: "heartbeat",
-          revision: game.state.revision,
-        });
-  } else if (net && !host) {
-    if (pending) sendPending();
-    if (joining || Date.now() - lastHost > 6000)
-      net.send(`in/${me.id}`, { type: "join", pid: me.id, name: me.name });
-    if (state && Date.now() - lastHost > 10000)
-      status("Хост не отвечает. Ждём восстановления…");
-  }
-}, 2000);
+  } else if (net && pending) sendPending();
+}, 1500);
 setInterval(() => {
   if (state?.phase !== "play") return;
   const left = Math.max(0, state.turn.endsAt - Date.now() - clockOffset);
@@ -528,3 +660,7 @@ $("#random-each-round").onchange = (e) => {
 for (const el of document.querySelectorAll("[data-preset-count]"))
   el.textContent = BUILTIN_SCHEMAS.length;
 $("#more-presets").textContent = `+${BUILTIN_SCHEMAS.length - 3} идей`;
+
+if (!firebaseConfigured())
+  $("#connection-help").textContent =
+    "Комнаты будут доступны после настройки Firebase. Мастерская уже работает.";

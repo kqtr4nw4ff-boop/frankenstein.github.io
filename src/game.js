@@ -1,4 +1,5 @@
-import { DEFAULT_SCHEMA, assignments } from "./schemas.js";
+import { hybridTasks } from "./hybrid.js";
+import { DEFAULT_SCHEMA, BUILTIN_SCHEMAS, assignments } from "./schemas.js";
 export const TURN_MS = 60000;
 export const MAX_PLAYERS = 8;
 export const MAX_POINTS = 4000;
@@ -38,7 +39,8 @@ export function validStrokes(strokes) {
   );
 }
 export class Game {
-  constructor(host, now = Date.now) {
+  constructor(host, now = Date.now, random = Math.random) {
+    this.random = random;
     this.now = now;
     this.state = {
       hostId: host.id,
@@ -62,6 +64,8 @@ export class Game {
     this.state.players.push({
       id: player.id,
       name: player.name.slice(0, 32),
+      avatarId: Number.isInteger(player.avatarId) ? player.avatarId : 0,
+      online: player.online !== false,
       strip: -1,
       done: false,
     });
@@ -78,13 +82,21 @@ export class Game {
       seconds % 10 !== 0
     )
       return false;
-    const tasks = assignments(schema, this.state.players.length);
+    const tasks = hybridTasks(
+      assignments(schema, this.state.players.length),
+      this.random,
+    );
+    if (!BUILTIN_SCHEMAS.some((s) => s.id === schema.id))
+      for (const task of tasks)
+        task.notes = task.parts
+          .filter((p) => p.notes)
+          .map((p) => `${p.scope}: ${p.notes}`);
     this.turnMs = seconds * 1000;
     this.word = word.trim().slice(0, 100);
     this.drawings.clear();
     const order = [...this.state.players];
     for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(this.random() * (i + 1));
       [order[i], order[j]] = [order[j], order[i]];
     }
     order.forEach((p, i) => {
@@ -116,6 +128,9 @@ export class Game {
           .filter((p) => p.strip >= 0)
           .map((p) => ({
             strip: p.strip,
+            artist: p.name,
+            avatarId: p.avatarId || 0,
+            pid: p.id,
             strokes: this.drawings.get(p.id) || [],
             task: p.task,
           })),
@@ -167,7 +182,50 @@ export class Game {
     this.drawings.clear();
     this.word = "";
   }
-  snapshot() {
-    return structuredClone({ ...this.state, revision: ++this.state.revision });
+  serialize() {
+    return {
+      version: 1,
+      state: structuredClone(this.state),
+      word: this.word,
+      turnMs: this.turnMs || TURN_MS,
+      drawings: Object.fromEntries(this.drawings),
+    };
+  }
+  static restore(data, now = Date.now) {
+    if (
+      data?.version !== 1 ||
+      !Array.isArray(data.state?.players) ||
+      !data.state.players.some((p) => p.id === data.state.hostId)
+    )
+      throw Error("Не удалось восстановить комнату");
+    const game = new Game(
+      data.state.players.find((p) => p.id === data.state.hostId),
+      now,
+    );
+    game.state = structuredClone(data.state);
+    game.word = data.word || "";
+    game.turnMs = data.turnMs || TURN_MS;
+    game.drawings = new Map(Object.entries(data.drawings || {}));
+    return game;
+  }
+  snapshot(viewerId = this.state.hostId, advance = true) {
+    if (advance) this.state.revision++;
+    const snapshot = structuredClone(this.state);
+    if (snapshot.phase !== "reveal")
+      for (const p of snapshot.players)
+        if (p.id !== viewerId && p.task)
+          p.task = {
+            label: p.task.label,
+            regions: p.task.regions.map((r) => ({
+              id: r.id,
+              label: r.label,
+              x: r.x,
+              y: r.y,
+              w: r.w,
+              h: r.h,
+            })),
+            anchors: p.task.anchors,
+          };
+    return snapshot;
   }
 }

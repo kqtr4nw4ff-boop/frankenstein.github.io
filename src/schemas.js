@@ -1,3 +1,5 @@
+import { taskRoles } from "./task-roles.js";
+import { connectTasks, sharedEdge, geometryText } from "./task-geometry.js";
 import { validateContour } from "./contour.js";
 export { DEFAULT_SCHEMA, BUILTIN_SCHEMAS } from "./schema-presets.js";
 const finiteUnit = (n) => Number.isFinite(n) && n >= 0 && n <= 1;
@@ -165,12 +167,30 @@ export function assignments(schema, count) {
     regions = structuredClone(layout.regions),
     anchors = structuredClone(layout.anchors);
   while (regions.length < count) {
-    const largest = regions.reduce((a, r) => (r.w * r.h > a.w * a.h ? r : a)),
+    const candidates = regions.filter(
+      (r) =>
+        !taskRoles(r.sourceLabel || r.label).some((role) =>
+          ["head", "cap"].includes(role),
+        ),
+    );
+    const largest = (candidates.length ? candidates : regions).reduce((a, r) =>
+        r.w * r.h > a.w * a.h ? r : a,
+      ),
       i = regions.indexOf(largest),
       r = largest;
     const horizontal = r.w >= r.h * 0.6;
-    const first = { ...r, id: r.id + "a" },
-      second = { ...r, id: r.id + "b" };
+    const first = {
+        ...r,
+        id: r.id + "a",
+        sourceLabel: r.sourceLabel || r.label,
+        partial: true,
+      },
+      second = {
+        ...r,
+        id: r.id + "b",
+        sourceLabel: r.sourceLabel || r.label,
+        partial: true,
+      };
     if (horizontal) {
       first.w = r.w / 2;
       second.x = r.x + r.w / 2;
@@ -200,31 +220,74 @@ export function assignments(schema, count) {
     }
     regions.splice(i, 1, first, second);
   }
-  return Array.from({ length: count }, (_, i) => {
-    const assigned = regions.slice(
-      Math.floor((i * regions.length) / count),
-      Math.floor(((i + 1) * regions.length) / count),
-    );
-    const merged = mergeRegions(assigned);
+  const tasks = groupParts(regions, count).map((assigned) => {
+    const merged = mergeRegions(assigned),
+      label = assigned.map((r) => r.label).join(" + ");
+    if (merged.length === 1) merged[0].label = label;
     return {
-      label: assigned.map((r) => r.label).join(" + "),
-      instruction: assigned
-        .map((r) => `${r.label}: ${r.instruction}`)
-        .join("\n"),
-      regions: merged,
-      anchors: anchors.filter((p) =>
-        merged.some(
-          (r) =>
-            contains(r, p.x, p.y, 0.005) &&
-            (Math.abs(p.x - r.x) < 0.005 ||
-              Math.abs(p.x - r.x - r.w) < 0.005 ||
-              Math.abs(p.y - r.y) < 0.005 ||
-              Math.abs(p.y - r.y - r.h) < 0.005),
-        ),
-      ),
+      label,
+      instruction: "",
+      partial: assigned.some((r) => r.partial),
+      parts: assigned.map((r) => ({
+        label: r.sourceLabel || r.label,
+        scope: r.label,
+        notes: r.instruction,
+      })),
+      regions: merged.map((r) => ({
+        id: r.id,
+        label: r.label,
+        x: r.x,
+        y: r.y,
+        w: r.w,
+        h: r.h,
+      })),
+      anchors: [],
     };
   });
+  connectTasks(tasks, anchors);
+  for (const task of tasks) task.instruction = geometryText(task);
+  return tasks;
 }
+function groupParts(regions, count) {
+  const groups = regions.map((r, index) => ({ parts: [r], order: index }));
+  while (groups.length > count) {
+    let choice = null,
+      best = Infinity;
+    for (let i = 0; i < groups.length; i++)
+      for (let j = i + 1; j < groups.length; j++) {
+        const a = groups[i],
+          b = groups[j],
+          connected = a.parts.some((x) =>
+            b.parts.some((y) => sharedEdge(x, y)),
+          ),
+          merged = mergeRegions([...a.parts, ...b.parts]),
+          roles = (g) =>
+            new Set(
+              g.parts.flatMap((r) => taskRoles(r.sourceLabel || r.label)),
+            ),
+          A = roles(a),
+          B = roles(b),
+          same = [...A].some((role) => B.has(role));
+        const score =
+          (connected ? 0 : 100) +
+          (merged.length === 1 ? 0 : 10) +
+          (same ? 0 : 2) +
+          (a.parts.length + b.parts.length) * 0.01;
+        if (score < best) {
+          best = score;
+          choice = [i, j];
+        }
+      }
+    const [i, j] = choice;
+    groups[i] = {
+      parts: [...groups[i].parts, ...groups[j].parts],
+      order: Math.min(groups[i].order, groups[j].order),
+    };
+    groups.splice(j, 1);
+  }
+  return groups.sort((a, b) => a.order - b.order).map((g) => g.parts);
+}
+
 const KEY = "frankenstein-schemas-v1";
 export function loadSchemas() {
   try {

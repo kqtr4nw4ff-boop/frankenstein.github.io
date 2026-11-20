@@ -8,15 +8,24 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test test/*.test.js",
-    "test:broker": "node scripts/test-broker.mjs"
+    "emulators": "firebase emulators:start --project demo-frankenstein --only auth,database",
+    "dev:emulator": "vite --host 0.0.0.0 --mode emulator",
+    "test:firebase": "node --test test/integration/firebase.test.mjs",
+    "test:emulator": "firebase emulators:exec --project demo-frankenstein --only database \"npm run test:firebase\""
   },
   "dependencies": {
-    "mqtt": "5.16.0"
+    "firebase": "13.4.0"
   },
   "devDependencies": {
-    "aedes": "1.2.0",
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase-tools": "15.37.0",
     "prettier": "3.10.1",
-    "vite": "7.3.8",
-    "ws": "8.23.0"
+    "vite": "7.3.8"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7"
   }
 }

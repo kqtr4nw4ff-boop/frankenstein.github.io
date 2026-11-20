@@ -1,0 +1,69 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$room": {
+        ".read": false,
+        ".write": "auth != null && root.child('rooms').child($room).child('meta/hostUid').val() === auth.uid",
+        ".validate": "$room.matches(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/) && newData.hasChild('meta')",
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && !data.exists() && newData.child('hostUid').val() === auth.uid",
+          ".validate": "newData.hasChildren(['hostUid','hostId','createdAt','expiresAt']) && newData.child('hostUid').isString() && newData.child('hostId').isString() && newData.child('hostId').val().length <= 64 && newData.child('createdAt').isNumber() && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > newData.child('createdAt').val() && newData.child('expiresAt').val() <= newData.child('createdAt').val() + 86400000 && (!data.exists() || (newData.child('hostUid').val() === data.child('hostUid').val() && newData.child('hostId').val() === data.child('hostId').val()))"
+        },
+        "slots": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').exists()",
+          "$slot": {
+            ".write": "auth != null && root.child('rooms').child($room).child('meta/expiresAt').val() > now && ((!data.exists() && newData.child('uid').val() === auth.uid && ($slot !== '0' || root.child('rooms').child($room).child('meta/hostId').val() === newData.child('pid').val())) || (data.child('uid').val() === auth.uid && !newData.exists()))",
+            ".validate": "$slot.matches(/^[0-7]$/) && newData.hasChildren(['pid','uid']) && newData.child('pid').isString() && newData.child('pid').val().length <= 64 && newData.child('uid').isString()"
+          }
+        },
+        "members": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').exists()",
+          "$pid": {
+            ".write": "auth != null && root.child('rooms').child($room).child('meta/expiresAt').val() > now && ((newData.exists() && newData.child('uid').val() === auth.uid && (!data.exists() || data.child('uid').val() === auth.uid)) || (!newData.exists() && data.child('uid').val() === auth.uid))",
+            ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,64}$/) && newData.hasChildren(['id','uid','slot','name','avatarId','online','lastSeen']) && newData.child('id').val() === $pid && newData.child('uid').isString() && newData.child('slot').isString() && newData.child('slot').val().matches(/^[0-7]$/) && root.child('rooms').child($room).child('slots').child(newData.child('slot').val()).child('pid').val() === $pid && root.child('rooms').child($room).child('slots').child(newData.child('slot').val()).child('uid').val() === newData.child('uid').val() && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 32 && newData.child('avatarId').isNumber() && newData.child('avatarId').val() >= 0 && newData.child('avatarId').val() < 24 && newData.child('avatarId').val() % 1 === 0 && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()",
+            "$other": {
+              ".validate": "$other === 'id' || $other === 'uid' || $other === 'slot' || $other === 'name' || $other === 'avatarId' || $other === 'online' || $other === 'lastSeen'"
+            }
+          }
+        },
+        "engine": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta/hostUid').val() === auth.uid",
+          ".validate": "newData.isString() && newData.val().length <= 2000000"
+        },
+        "responses": {
+          "$pid": {
+            ".read": "auth != null && (auth != null && root.child('rooms').child($room).child('meta/hostUid').val() === auth.uid || root.child('rooms').child($room).child('members').child($pid).child('uid').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['payload','updatedAt']) && newData.child('payload').isString() && newData.child('payload').val().length <= 2000000 && newData.child('updatedAt').isNumber()"
+          }
+        },
+        "commands": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta/hostUid').val() === auth.uid",
+          "$command": {
+            ".write": "auth != null && root.child('rooms').child($room).child('meta/expiresAt').val() > now && root.child('rooms').child($room).child('members').child(newData.child('pid').val()).child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['pid','type','payload','createdAt']) && newData.child('pid').isString() && (newData.child('type').val() === 'join' || newData.child('type').val() === 'submit') && newData.child('payload').isString() && newData.child('payload').val().length <= 1400000 && newData.child('createdAt').isNumber()"
+          }
+        },
+        "chat": {
+          ".read": "auth != null && (root.child('rooms').child($room).child('slots/0/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/1/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/2/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/3/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/4/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/5/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/6/uid').val() === auth.uid || root.child('rooms').child($room).child('slots/7/uid').val() === auth.uid)",
+          ".indexOn": ["createdAt"],
+          "$message": {
+            ".write": "auth != null && root.child('rooms').child($room).child('meta/expiresAt').val() > now && !data.exists() && newData.child('uid').val() === auth.uid && root.child('rooms').child($room).child('members').child(newData.child('pid').val()).child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['pid','uid','name','avatarId','text','createdAt']) && newData.child('name').val() === root.child('rooms').child($room).child('members').child(newData.child('pid').val()).child('name').val() && newData.child('avatarId').val() === root.child('rooms').child($room).child('members').child(newData.child('pid').val()).child('avatarId').val() && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 300 && newData.child('createdAt').isNumber() && newData.child('createdAt').val() <= now + 1000 && newData.child('createdAt').val() >= now - 60000"
+          }
+        },
+        "presence": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').exists()",
+          "$pid": {
+            "$connection": {
+              ".write": "auth != null && root.child('rooms').child($room).child('members').child($pid).child('uid').val() === auth.uid",
+              ".validate": "newData.val() === true"
+            }
+          }
+        }
+      }
+    }
+  }
+}
