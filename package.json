@@ -1,0 +1,22 @@
+{
+  "name": "frankenstein-game",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test test/*.test.js",
+    "test:broker": "node scripts/test-broker.mjs"
+  },
+  "dependencies": {
+    "mqtt": "5.16.0"
+  },
+  "devDependencies": {
+    "aedes": "1.2.0",
+    "prettier": "3.10.1",
+    "vite": "7.3.8",
+    "ws": "8.23.0"
+  }
+}
