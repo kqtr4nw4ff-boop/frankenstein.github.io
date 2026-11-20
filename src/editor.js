@@ -1,4 +1,9 @@
-import { validateSchema, overlaps, downloadSchema } from "./schemas.js";
+import {
+  validateSchema,
+  overlaps,
+  downloadSchema,
+  BUILTIN_SCHEMAS,
+} from "./schemas.js";
 import { PALETTE } from "./drawing.js";
 export class SchemaEditor {
   constructor({ onSave, onCancel, toast }) {
@@ -213,7 +218,9 @@ export class SchemaEditor {
     this.image = null;
     this.reference = schema?.reference;
     this.schemaId =
-      schema && schema.id !== "quadruped" ? schema.id : crypto.randomUUID();
+      schema && !BUILTIN_SCHEMAS.some((s) => s.id === schema.id)
+        ? schema.id
+        : crypto.randomUUID();
     this.regions = structuredClone(schema?.regions || []);
     this.anchors = structuredClone(schema?.anchors || []);
     this.history = [];

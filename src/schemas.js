@@ -1,58 +1,4 @@
-// Public schema format: normalized coordinates, no image data or secret animal names in tasks.
-export const DEFAULT_SCHEMA = {
-  version: 1,
-  id: "quadruped",
-  name: "Зверь сбоку",
-  keywords: ["кот", "кошка", "собака", "лиса", "волк"],
-  regions: [
-    {
-      id: "head",
-      label: "Голова с ушами",
-      instruction: "Морда смотрит влево. Соедини шею с метками справа.",
-      x: 0,
-      y: 0,
-      w: 0.28,
-      h: 1,
-    },
-    {
-      id: "front",
-      label: "Грудь и передние лапы",
-      instruction:
-        "Шея приходит слева, туловище продолжается справа. Лапы направлены вниз.",
-      x: 0.28,
-      y: 0,
-      w: 0.24,
-      h: 1,
-    },
-    {
-      id: "back",
-      label: "Туловище и задние лапы",
-      instruction:
-        "Продолжи туловище от левых меток к правым. Лапы направлены вниз.",
-      x: 0.52,
-      y: 0,
-      w: 0.26,
-      h: 1,
-    },
-    {
-      id: "tail",
-      label: "Хвост",
-      instruction: "Начни хвост у меток слева. Дальше придумай его форму сам.",
-      x: 0.78,
-      y: 0,
-      w: 0.22,
-      h: 1,
-    },
-  ],
-  anchors: [
-    { x: 0.28, y: 0.35, group: "neck", label: "Шея" },
-    { x: 0.28, y: 0.58, group: "neck", label: "Шея" },
-    { x: 0.52, y: 0.35, group: "body", label: "Туловище" },
-    { x: 0.52, y: 0.65, group: "body", label: "Туловище" },
-    { x: 0.78, y: 0.4, group: "tail", label: "Основание хвоста" },
-    { x: 0.78, y: 0.55, group: "tail", label: "Основание хвоста" },
-  ],
-};
+export { DEFAULT_SCHEMA, BUILTIN_SCHEMAS } from "./schema-presets.js";
 const finiteUnit = (n) => Number.isFinite(n) && n >= 0 && n <= 1;
 export function overlaps(a, b) {
   return (
@@ -122,7 +68,31 @@ export function validateSchema(data) {
       ))
   )
     throw Error("Неверная картинка подложки");
+  const layouts = {};
+  if (data.layouts !== undefined) {
+    if (
+      !data.layouts ||
+      typeof data.layouts !== "object" ||
+      Array.isArray(data.layouts)
+    )
+      throw Error("Некорректные варианты схемы");
+    for (const [count, layout] of Object.entries(data.layouts)) {
+      if (!/^[2-8]$/.test(count) || !layout || typeof layout !== "object")
+        throw Error("Варианты рассчитаны на 2–8 игроков");
+      const normalized = validateSchema({
+        version: 1,
+        name: data.name,
+        regions: layout.regions,
+        anchors: layout.anchors,
+      });
+      layouts[count] = {
+        regions: normalized.regions,
+        anchors: normalized.anchors,
+      };
+    }
+  }
   return {
+    ...(Object.keys(layouts).length ? { layouts } : {}),
     ...(data.reference ? { reference: data.reference } : {}),
     version: 1,
     id:
@@ -186,9 +156,12 @@ export function mergeRegions(input) {
   return regions;
 }
 export function assignments(schema, count) {
+  if (!Number.isInteger(count) || count < 2 || count > 8)
+    throw Error("В игре должно быть от 2 до 8 участников");
   const s = validateSchema(schema),
-    regions = structuredClone(s.regions),
-    anchors = structuredClone(s.anchors);
+    layout = s.layouts?.[count] || s,
+    regions = structuredClone(layout.regions),
+    anchors = structuredClone(layout.anchors);
   while (regions.length < count) {
     const largest = regions.reduce((a, r) => (r.w * r.h > a.w * a.h ? r : a)),
       i = regions.indexOf(largest),

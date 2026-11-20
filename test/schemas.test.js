@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_SCHEMA,
+  BUILTIN_SCHEMAS,
   validateSchema,
   assignments,
   overlaps,
@@ -80,4 +81,80 @@ test("adapts to 2–8 players without losing area or producing overlaps", () => 
       for (let j = i + 1; j < regions.length; j++)
         assert.equal(overlaps(regions[i], regions[j]), false);
   }
+});
+
+test("every built-in has complete, disjoint assignments for 2–8 players", () => {
+  assert.equal(BUILTIN_SCHEMAS.length, 12);
+  assert.equal(new Set(BUILTIN_SCHEMAS.map((s) => s.id)).size, 12);
+  for (const schema of BUILTIN_SCHEMAS) {
+    const safe = validateSchema(schema);
+    for (let count = 2; count <= 8; count++) {
+      const source = safe.layouts?.[count] || safe,
+        tasks = assignments(safe, count),
+        regions = tasks.flatMap((t) => t.regions);
+      assert.equal(tasks.length, count, `${schema.id}: ${count} tasks`);
+      assert.ok(
+        tasks.every((t) => t.regions.length && t.label && t.instruction),
+      );
+      const area = (rs) => rs.reduce((total, r) => total + r.w * r.h, 0);
+      assert.ok(
+        Math.abs(area(regions) - area(source.regions)) < 0.00001,
+        `${schema.id}: missing area for ${count}`,
+      );
+      for (let i = 0; i < regions.length; i++)
+        for (let j = i + 1; j < regions.length; j++)
+          assert.equal(
+            overlaps(regions[i], regions[j]),
+            false,
+            `${schema.id}: overlap`,
+          );
+      for (const region of source.regions) {
+        for (const fx of [0.15, 0.5, 0.85])
+          for (const fy of [0.15, 0.5, 0.85]) {
+            const x = region.x + region.w * fx,
+              y = region.y + region.h * fy;
+            assert.equal(
+              regions.filter(
+                (r) =>
+                  x > r.x - 1e-8 &&
+                  x < r.x + r.w - 1e-8 &&
+                  y > r.y - 1e-8 &&
+                  y < r.y + r.h - 1e-8,
+              ).length,
+              1,
+              `${schema.id}: area assigned exactly once`,
+            );
+          }
+      }
+    }
+  }
+});
+test("two-player cat is a head above a body and exports preserve layouts", () => {
+  const tasks = assignments(DEFAULT_SCHEMA, 2);
+  assert.equal(tasks.length, 2);
+  assert.equal(tasks[0].regions.length, 1);
+  assert.equal(tasks[1].regions.length, 1);
+  assert.match(tasks[0].label, /Голова/);
+  assert.doesNotMatch(tasks[0].label, /Грудь|лапы/);
+  assert.match(tasks[1].label, /Туловище/);
+  assert.equal(
+    tasks[0].regions[0].y + tasks[0].regions[0].h,
+    tasks[1].regions[0].y,
+  );
+  assert.deepEqual(
+    assignments(JSON.parse(JSON.stringify(validateSchema(DEFAULT_SCHEMA))), 2),
+    tasks,
+  );
+  const g = new Game({ id: "a", name: "Аня" });
+  g.join({ id: "b", name: "Боря" });
+  g.start("Секретное животное", DEFAULT_SCHEMA);
+  const state = JSON.stringify(g.snapshot());
+  for (const secret of [
+    "Секретное животное",
+    "keywords",
+    "reference",
+    "layouts",
+    "Кот с характером",
+  ])
+    assert.equal(state.includes(secret), false);
 });

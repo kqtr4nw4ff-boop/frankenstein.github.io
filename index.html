@@ -2,271 +2,474 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="data:," />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f5f3eb" />
     <meta
-      name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+      name="description"
+      content="Каждый рисует свой фрагмент, а в финале получается один невероятный зверь. Игра для друзей в браузере."
     />
-    <title>Франкенштейн — собери монстра вслепую</title>
+    <link rel="icon" href="data:," />
+    <title>Франкенштейн — мастерская невероятных зверей</title>
   </head>
   <body>
-    <header>
-      <div class="logo">
-        Ф<em>ранкен</em>штейн
-        <span style="font-size: 12px; opacity: 0.6"
-          >собери монстра вслепую</span
-        >
-      </div>
-      <div class="pill warn" id="net">не в сети</div>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Франкенштейн — главная">
+        <svg viewBox="0 0 40 42" fill="none" aria-hidden="true">
+          <path
+            d="M8 13 5 4l12 7h6L35 4l-3 9v17l-9 8h-6l-9-8Z"
+            fill="#c8d8b3"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M13 20h3m8 0h3m-10 8 3 2 3-2M20 12v4m-3-2h6"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span>Франкенштейн<small>мастерская невероятных зверей</small></span>
+      </a>
+      <div class="pill warn" id="net" role="status">Можно начинать</div>
     </header>
     <main>
-      <!-- ГЛАВНЫЙ ЭКРАН -->
       <section class="screen on" id="scr-home">
-        <div class="card center">
-          <h1>
-            Каждый рисует свой кусок.<br />Никто не знает, что рисуют остальные.
-          </h1>
-          <p class="sub">
-            В конце части склеиваются в одну картинку — обычно это умилительное
-            безобразие. Без установки чего-либо: открой сайт, создай комнату и
-            отправь приглашение друзьям.
-          </p>
-          <div class="btnrow">
-            <button class="btn" id="b-create">Создать игру</button>
-            <button class="ghost" id="home-editor">Мастерская схем</button>
-          </div>
-          <label style="text-align: left"
-            >или присоединиться по приглашению</label
-          >
-          <div class="row">
-            <input
-              id="in-code"
-              placeholder="Приглашение"
-              maxlength="256"
-              style="
-                text-transform: uppercase;
-                letter-spacing: 4px;
-                font-weight: 800;
-                text-align: center;
-              "
-              autocomplete="off"
-            />
-            <input
-              id="in-name"
-              placeholder="Твоё имя"
-              style="max-width: 200px"
-              autocomplete="off"
-            />
-            <button class="btn2" id="b-join">Войти</button>
-          </div>
-          <details>
-            <summary>свой брокер (необязательно)</summary>
-            <input
-              id="in-broker"
-              list="broker-list"
-              placeholder="wss://public:public@public.cloud.shiftr.io"
-            />
-            <p class="hint">
-              По умолчанию используется публичный shiftr.io. Адрес выбранного
-              брокера входит в приглашение — все участники подключаются к одному
-              серверу.
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="eyebrow"
+              ><span class="tiny-spark">✳</span> 2–8 друзей · 75 секунд на
+              фрагмент</span
+            >
+            <h1>Твоя часть.<br />Общий <span>шедевр.</span></h1>
+            <p class="hero-description">
+              Кто-то рисует голову. Кто-то — лапы.<br />Никто не видит чужой
+              рисунок. В конце встречается<br class="desktop-break" />
+              зверь, которого ещё не было.
             </p>
+            <div class="how-it-works">
+              <span><b>01</b> Соберитесь</span><span><b>02</b> Нарисуйте</span
+              ><span><b>03</b> Удивитесь</span>
+            </div>
+          </div>
+          <div
+            class="hero-art"
+            aria-label="Пример: голова и туловище собираются в одного забавного зверя"
+          >
+            <div class="art-sticker sticker-top">У тебя — голова!</div>
+            <svg viewBox="0 0 430 370" class="hero-creature" aria-hidden="true">
+              <defs>
+                <pattern
+                  id="demo-grid"
+                  width="24"
+                  height="24"
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path
+                    d="M24 0H0V24"
+                    fill="none"
+                    stroke="#d9ddd2"
+                    stroke-width=".6"
+                  />
+                </pattern>
+              </defs>
+              <rect
+                x="4"
+                y="4"
+                width="422"
+                height="362"
+                rx="24"
+                fill="url(#demo-grid)"
+              />
+              <rect
+                x="100"
+                y="38"
+                width="232"
+                height="151"
+                rx="18"
+                fill="#ffe3ac"
+                stroke="#c38a35"
+                stroke-width="1.5"
+                stroke-dasharray="5 5"
+              />
+              <rect
+                x="100"
+                y="197"
+                width="232"
+                height="138"
+                rx="18"
+                fill="#dbe5ce"
+                stroke="#8ea282"
+                stroke-width="1.5"
+                stroke-dasharray="5 5"
+              />
+              <g
+                stroke="#343d33"
+                stroke-width="5"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="m159 188-30-39 4-82 51 29 32-10 34 10 52-29-2 82-29 39"
+                />
+                <path
+                  d="M177 127h9m56 0h9m-48 20 13 10 13-10h-26m13 10v14m-16 2 16-2 16 2m-79-27-29-5m30 20-30 4m154-19 29-5m-30 20 30 4"
+                />
+                <path
+                  d="m159 198-16 47 2 59h40l5-32h50l6 32h41l-1-60-15-46m13 58 39-14 9-36-17-8-7 21-23 7"
+                />
+                <path d="m163 287 0 16m14-16v16m76-16v16m14-16v16" />
+              </g>
+              <circle cx="159" cy="193" r="6" fill="#d77a55" />
+              <circle cx="271" cy="193" r="6" fill="#d77a55" />
+              <path
+                d="M160 193h110"
+                stroke="#d77a55"
+                stroke-dasharray="4 5"
+                stroke-width="2"
+              />
+            </svg>
+            <div class="art-sticker sticker-bottom">
+              А это мы ещё не видели…
+            </div>
+            <span class="art-star">✳</span>
+          </div>
+        </div>
+        <div class="home-bottom">
+          <div class="card start-card">
+            <div class="section-heading">
+              <span class="section-number">01 / СОБИРАЕМСЯ</span>
+              <h2>Зови своих художников</h2>
+              <p class="sub">Художественное образование не понадобится.</p>
+            </div>
+            <label for="in-name">Как тебя зовут?</label
+            ><input
+              id="in-name"
+              placeholder="Например, Саша"
+              maxlength="32"
+              autocomplete="nickname"
+            />
+            <button class="btn full-width" id="b-create">
+              Создать комнату <span aria-hidden="true">↗</span>
+            </button>
+            <div class="form-divider"><span>уже есть приглашение?</span></div>
+            <div class="join-row">
+              <input
+                id="in-code"
+                placeholder="Вставь ссылку-приглашение"
+                maxlength="512"
+                autocomplete="off"
+                aria-label="Приглашение"
+              /><button class="btn2" id="b-join">Войти →</button>
+            </div>
+            <details class="network-settings">
+              <summary>Настройки соединения</summary>
+              <label for="in-broker">Адрес брокера</label
+              ><input
+                id="in-broker"
+                list="broker-list"
+                placeholder="Оставь пустым для обычной игры"
+              />
+              <p class="hint">
+                Все участники подключаются по адресу из приглашения. Свой сервер
+                не нужен.
+              </p>
+            </details>
             <datalist id="broker-list">
               <option
                 value="wss://public:public@public.cloud.shiftr.io"
               ></option>
               <option value="wss://broker.emqx.io:8084/mqtt"></option>
               <option value="wss://broker.hivemq.com:8884/mqtt"></option>
-              <option value="wss://mqtt.eclipseprojects.io/mqtt"></option>
             </datalist>
-          </details>
-          <p class="hint">
-            Хост должен держать вкладку открытой. Рисунки передаются через
-            публичный брокер; не отправляйте личные данные.
-          </p>
+          </div>
+          <div class="workshop-card">
+            <span class="section-number">02 / ПРИДУМЫВАЕМ</span>
+            <div class="workshop-symbol" aria-hidden="true">✎</div>
+            <h2>Звери бывают всякие.<br />Твои — особенно.</h2>
+            <p class="sub">
+              Кот с характером, дракон на выходных или медуза-дискотека. Выбери
+              одну из 12 схем или придумай собственную.
+            </p>
+            <div class="preset-tags">
+              <span>Кот</span><span>Дракон</span><span>Осьминог</span
+              ><span>+9 идей</span>
+            </div>
+            <button class="ghost" id="home-editor">
+              Открыть мастерскую <span aria-hidden="true">↗</span>
+            </button>
+            <p class="hint">
+              Загрузи картинку → выдели части → подпиши задания.<br />Можно
+              заняться этим до игры, без подключения.
+            </p>
+          </div>
         </div>
       </section>
-
-      <!-- ЛОББИ -->
       <section class="screen" id="scr-lobby">
-        <div class="card">
-          <div class="center">
-            <h2>Комната</h2>
+        <div class="page-intro">
+          <span class="eyebrow">Все великие звери начинались здесь</span>
+          <h1>Место встречи — мастерская.</h1>
+          <p class="sub">
+            Пригласи друзей. Ведущий выбирает зверя, остальные узнают его в
+            финале.
+          </p>
+        </div>
+        <div class="lobby-grid">
+          <div class="card room-card">
+            <span class="section-number">ВАША КОМНАТА</span>
             <div class="code" id="code-big">—</div>
-            <input
+            <label for="invite-field">Отправь друзьям эту ссылку</label
+            ><input
               id="invite-field"
               readonly
               aria-label="Ссылка-приглашение"
-              style="font-size: 12px; margin-bottom: 10px"
-            />
-            <button
-              class="ghost"
-              id="b-copy"
-              style="padding: 8px 16px; font-size: 13px"
-            >
-              скопировать приглашение
+            /><button class="btn2 full-width" id="b-copy">
+              Скопировать приглашение ↗
             </button>
+            <div class="room-players">
+              <h2>Художники <span id="p-count"></span></h2>
+              <div class="players" id="plist"></div>
+            </div>
+            <p class="hint" id="lobby-note"></p>
           </div>
-          <div id="host-word-box">
-            <label>Загадай слово (его увидят только в конце!)</label>
-            <input
-              id="in-word"
-              placeholder="например: кот-космонавт"
-              autocomplete="off"
-            />
-            <label for="schema-select">Схема тела</label>
-            <select id="schema-select"></select>
-            <p class="hint">
-              Название зверя и подложку видит только ведущий. Игрокам достаются
-              задания и пустые области.
-            </p>
-            <div class="btnrow">
-              <button class="ghost" id="b-edit-schema">Создать схему</button
-              ><button class="ghost" id="b-change-schema">Изменить схему</button
-              ><button class="ghost" id="b-import-schema">
-                Добавить из файла</button
-              ><button class="ghost" id="b-export-schema">
-                Поделиться схемой
+          <div class="card setup-card">
+            <div id="host-word-box">
+              <span class="section-number">ТОЛЬКО ДЛЯ ВЕДУЩЕГО</span>
+              <h2>Кого сегодня собираем?</h2>
+              <label for="in-word">Секретное слово</label
+              ><input
+                id="in-word"
+                placeholder="Например, кот-космонавт"
+                maxlength="100"
+                autocomplete="off"
+              /><label for="schema-select">Схема тела</label
+              ><select id="schema-select"></select>
+              <div class="schema-preview-row">
+                <div id="lobby-schema-preview"></div>
+                <div>
+                  <strong id="schema-summary"></strong>
+                  <p class="hint">
+                    Схема подстраивается под число игроков. Каждый видит план,
+                    своё задание и пустой участок.
+                  </p>
+                  <span class="private-note"
+                    >Слово и подложка останутся в секрете.</span
+                  >
+                </div>
+              </div>
+              <details class="schema-gallery">
+                <summary>Выбрать из готовых схем</summary>
+                <div id="preset-library"></div>
+              </details>
+              <div class="schema-actions">
+                <button class="ghost small" id="b-edit-schema">
+                  ＋ Создать</button
+                ><button class="ghost small" id="b-change-schema">
+                  Изменить</button
+                ><button class="ghost small" id="b-import-schema">
+                  Из файла</button
+                ><button class="ghost small" id="b-export-schema">
+                  Поделиться
+                </button>
+              </div>
+              <input
+                type="file"
+                id="schema-file"
+                accept=".json,application/json"
+                hidden
+              />
+            </div>
+            <div id="wait-box" style="display: none">
+              <div class="waiting-symbol">✳</div>
+              <h2>Ведущий кое-что задумал.</h2>
+              <p class="sub">
+                Скоро ты получишь свой фрагмент. Что это за зверь — узнаем все
+                вместе.
+              </p>
+            </div>
+            <div class="btnrow" id="host-start-row" style="display: none">
+              <button class="btn full-width" id="b-start">
+                Нужно хотя бы 2 игрока
               </button>
             </div>
-            <input
-              type="file"
-              id="schema-file"
-              accept=".json,application/json"
-              hidden
-            />
           </div>
-          <div id="wait-box" style="display: none">
-            <p class="sub center">
-              Ожидаем, пока хост загадает слово и начнёт игру…
-            </p>
-          </div>
-          <h2 style="margin-top: 18px">Игроки <span id="p-count"></span></h2>
-          <div class="players" id="plist"></div>
-          <div class="btnrow" id="host-start-row" style="display: none">
-            <button class="btn" id="b-start">Начать (нужно ≥2)</button>
-          </div>
-          <p class="hint" id="lobby-note"></p>
         </div>
       </section>
-
-      <!-- ИГРА -->
       <section class="screen" id="scr-game">
-        <div class="card">
-          <div class="row" style="justify-content: space-between">
-            <div class="tag" id="who-tag">…</div>
-            <div class="tag" id="progress-tag"></div>
+        <div class="game-heading">
+          <div>
+            <span class="eyebrow">Рисуем вслепую</span>
+            <h1>Всё начинается с твоей части.</h1>
           </div>
-          <p
-            class="sub"
-            id="task-instruction"
-            style="white-space: pre-line; margin: 12px 0"
-          ></p>
-          <div class="wrap">
-            <div class="tbar" id="tbar" style="width: 0"></div>
-            <div class="timer" id="timer" style="display: none">75</div>
-            <canvas id="cv" width="2000" height="1250"></canvas>
-            <div class="overlay" id="wait-overlay">
-              <div style="font-size: 40px">🧟</div>
-              <div class="big" id="ov-text">Ждём очередь…</div>
+          <div class="tag" id="progress-tag"></div>
+        </div>
+        <div class="game-workspace">
+          <aside class="task-panel">
+            <span class="section-number">ТВОЁ ЗАДАНИЕ</span>
+            <h2 id="who-tag">Твой фрагмент</h2>
+            <p id="task-instruction"></p>
+            <div class="plan-heading">
+              <h3>План зверя</h3>
+              <span class="plan-legend"><i></i> Твоя часть</span>
             </div>
-          </div>
-          <div class="toolbar" id="toolbar">
-            <div
-              class="row"
-              id="drawing-tools"
-              role="group"
-              aria-label="Инструменты рисования"
-            >
-              <button class="ghost on" data-tool="pen" aria-pressed="true">
-                Кисть
-              </button>
-              <button class="ghost" data-tool="fill" aria-pressed="false">
-                Заливка
-              </button>
-              <button class="ghost" data-tool="line" aria-pressed="false">
-                Линия
-              </button>
-              <button class="ghost" data-tool="rect" aria-pressed="false">
-                Прямоугольник
-              </button>
-              <button class="ghost" data-tool="ellipse" aria-pressed="false">
-                Эллипс
-              </button>
-              <label class="shape-fill"
-                ><input type="checkbox" id="shape-filled" />Залить фигуру</label
+            <div id="scheme-overview"></div>
+            <p class="hint">
+              Светлые блоки — другие фрагменты. Цветной — твой. Чужие рисунки
+              откроются только в финале.
+            </p>
+            <div class="seam-tip">
+              <span aria-hidden="true">↔</span>
+              <p>
+                Веди контур к синим стыкам.<br />У соседа они в том же месте.
+              </p>
+            </div>
+          </aside>
+          <div class="drawing-panel">
+            <div class="canvas-heading">
+              <span>Твой чистый лист</span
+              ><span class="canvas-caption">Смелее. Идеально не нужно.</span>
+            </div>
+            <div class="wrap">
+              <div class="tbar" id="tbar"></div>
+              <div class="timer" id="timer" style="display: none">75</div>
+              <canvas
+                id="cv"
+                width="2000"
+                height="1250"
+                aria-label="Холст твоего фрагмента"
+              ></canvas>
+              <div class="overlay" id="wait-overlay">
+                <span class="waiting-symbol">✳</span>
+                <div id="ov-text">Ждём очередь…</div>
+              </div>
+            </div>
+            <div class="toolbar" id="toolbar">
+              <div
+                class="tool-scroll"
+                id="drawing-tools"
+                role="group"
+                aria-label="Инструменты рисования"
               >
+                <button class="ghost on" data-tool="pen" aria-pressed="true">
+                  ✎ Кисть</button
+                ><button class="ghost" data-tool="fill" aria-pressed="false">
+                  ◒ Заливка</button
+                ><button class="ghost" data-tool="line" aria-pressed="false">
+                  ╱ Линия</button
+                ><button class="ghost" data-tool="rect" aria-pressed="false">
+                  □ Прямоугольник</button
+                ><button class="ghost" data-tool="ellipse" aria-pressed="false">
+                  ○ Эллипс
+                </button>
+              </div>
+              <div class="brush-options">
+                <div
+                  class="row"
+                  id="swatches"
+                  role="group"
+                  aria-label="Цвет рисунка"
+                ></div>
+                <label class="brush-size"
+                  >Толщина<input
+                    type="range"
+                    id="w-size"
+                    min="3"
+                    max="30"
+                    value="9" /></label
+                ><label class="shape-fill"
+                  ><input type="checkbox" id="shape-filled" />Залить
+                  фигуру</label
+                >
+              </div>
+              <div class="drawing-actions">
+                <button class="ghost" id="b-undo">↶ Отменить</button
+                ><button class="btn" id="b-done">Моя часть готова ✓</button>
+              </div>
             </div>
-            <div class="row" id="swatches"></div>
-            <input type="range" id="w-size" min="3" max="30" value="9" />
-            <button class="ghost" id="b-undo">↩ отменить</button>
-            <button class="btn2" id="b-done">Готово!</button>
           </div>
         </div>
       </section>
-
-      <!-- РЕВил -->
       <section class="screen" id="scr-reveal">
-        <div class="card center">
-          <div style="font-size: 15px; letter-spacing: 2px; opacity: 0.7">
-            ЭТО БЫЛ(А)
-          </div>
+        <div class="reveal-heading">
+          <span class="eyebrow">Отдельно — наброски. Вместе — вот это.</span>
+          <h1>Знакомьтесь, это…</h1>
           <div class="bigword" id="reveal-word">…</div>
-          <div class="wrap">
-            <canvas id="cv2" width="2000" height="1250"></canvas>
-          </div>
-          <div class="btnrow">
-            <button class="btn2" id="b-download">Скачать PNG</button>
-            <button class="btn" id="b-again" style="display: none">
-              Ещё слово!
-            </button>
-          </div>
-          <p class="hint">
-            С возвращением в лобби — там можно загадать новое слово.
-          </p>
         </div>
+        <div class="reveal-paper">
+          <canvas
+            id="cv2"
+            width="2000"
+            height="1250"
+            aria-label="Общий рисунок всех игроков"
+          ></canvas>
+        </div>
+        <div class="btnrow">
+          <button class="btn2" id="b-download">Сохранить наш шедевр ↓</button
+          ><button class="btn" id="b-again" style="display: none">
+            Ещё одного зверя ↗
+          </button>
+        </div>
+        <p class="hint center">
+          Каждая часть — от своего художника. Такой зверь существует в
+          единственном экземпляре.
+        </p>
       </section>
-
       <section class="screen" id="scr-editor">
-        <div class="card">
-          <h2>Мастерская схем</h2>
-          <p class="sub">
-            Добавь картинку, обведи части прямоугольниками и подпиши задания.
-            Области можно расположить как угодно. Картинка нужна только тебе — в
-            игру она не попадёт.
-          </p>
-          <label for="schema-name">Название схемы (только для ведущего)</label>
-          <input
-            id="schema-name"
-            maxlength="80"
-            placeholder="Например: зверь с длинной шеей"
-          />
-          <label for="schema-keywords"
-            >Для каких слов подходит (через запятую, необязательно)</label
-          >
-          <input id="schema-keywords" placeholder="жираф, динозавр" />
-          <div class="btnrow">
-            <label class="file-button ghost"
-              >Добавить картинку<input
+        <div class="editor-intro">
+          <div>
+            <span class="eyebrow">Мастерская схем</span>
+            <h1>А что, если нарисовать…</h1>
+            <p class="sub">
+              Подложка видна только тебе. Игрокам достанутся простые блоки и
+              твои задания.
+            </p>
+          </div>
+          <button class="ghost" id="editor-cancel">← Назад</button>
+        </div>
+        <div class="card editor-settings">
+          <div>
+            <label for="schema-name">Название схемы</label
+            ><input
+              id="schema-name"
+              maxlength="80"
+              placeholder="Например, зверь с длинной шеей"
+            />
+          </div>
+          <div>
+            <label for="schema-keywords">Для каких слов подходит</label
+            ><input
+              id="schema-keywords"
+              placeholder="жираф, динозавр — через запятую"
+            />
+          </div>
+        </div>
+        <div class="card editor-board">
+          <div class="editor-controls">
+            <label class="file-button"
+              >↥ Добавить подложку<input
                 type="file"
                 id="schema-image"
                 accept="image/png,image/jpeg,image/webp"
                 hidden
             /></label>
-            <button class="btn2" id="editor-regions">
-              1. Выделить области
-            </button>
-            <button class="ghost" id="editor-anchors">
-              2. Расставить стыки
-            </button>
-            <button class="ghost" id="editor-undo">Отменить действие</button>
+            <div class="row">
+              <button class="btn2" id="editor-regions">1. Выделить части</button
+              ><button class="ghost" id="editor-anchors">
+                2. Поставить стыки</button
+              ><button class="ghost" id="editor-undo">↶ Отменить</button>
+            </div>
           </div>
-          <label for="anchor-label"
-            >Название стыка (например: шея, поясница)</label
-          ><input id="anchor-label" maxlength="40" placeholder="Стык" />
+          <div class="anchor-setting">
+            <label for="anchor-label">Название стыка</label
+            ><input
+              id="anchor-label"
+              maxlength="40"
+              placeholder="Например, шея или поясница"
+            />
+          </div>
           <p class="hint" id="editor-help">
-            Потяни по картинке, чтобы выделить область. Подпиши её ниже. Пустое
-            место вокруг зверя размечать не нужно.
+            Потяни по картинке, чтобы выделить область. Затем подпиши задание.
           </p>
           <canvas
             id="editor-canvas"
@@ -276,21 +479,21 @@
           ></canvas>
           <div id="editor-regions-list"></div>
           <p class="hint">
-            При меньшем числе игроков задания объединяются. При большем —
-            крупные области делятся на части. В игре от 2 до 8 участников.
+            Задания адаптируются к 2–8 игрокам. Области объединяются или
+            делятся, а их положение сохраняется.
           </p>
-          <div class="btnrow">
-            <button class="ghost" id="editor-export">Сохранить в файл</button
-            ><button class="btn" id="editor-save">Сохранить и выбрать</button
-            ><button class="ghost" id="editor-cancel">
-              Вернуться без сохранения
-            </button>
-          </div>
+        </div>
+        <div class="btnrow editor-save-row">
+          <button class="ghost" id="editor-export">Сохранить в файл ↓</button
+          ><button class="btn" id="editor-save">Сохранить схему ✓</button>
         </div>
       </section>
     </main>
+    <footer class="site-footer">
+      <span>Собрано из дружбы и сомнительных художественных решений.</span
+      ><span>Франкенштейн © 2026</span>
+    </footer>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

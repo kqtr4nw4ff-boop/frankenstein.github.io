@@ -106,12 +106,25 @@ function drawGuides(c, task, W, H) {
   c.restore();
 }
 const fillCache = new WeakMap();
-export function paint(canvas, fragments, activeTask = null) {
+export function paint(canvas, fragments, activeTask = null, plan = []) {
   const c = canvas.getContext("2d"),
     W = canvas.width,
     H = canvas.height;
   c.fillStyle = activeTask ? "#e5dfd4" : "#fff8ec";
   c.fillRect(0, 0, W, H);
+  if (activeTask) {
+    for (const task of plan) {
+      c.fillStyle = "#e8eae4";
+      c.strokeStyle = "#bdc5b8";
+      c.lineWidth = 2;
+      c.setLineDash([10, 12]);
+      for (const r of task.regions) {
+        c.fillRect(r.x * W, r.y * H, r.w * W, r.h * H);
+        c.strokeRect(r.x * W + 2, r.y * H + 2, r.w * W - 4, r.h * H - 4);
+      }
+    }
+    c.setLineDash([]);
+  }
   if (activeTask) {
     c.fillStyle = "#fff8ec";
     for (const r of activeTask.regions)
@@ -189,7 +202,8 @@ export function paint(canvas, fragments, activeTask = null) {
   }
 }
 export class Drawing {
-  constructor(canvas, canDraw, task, changed) {
+  constructor(canvas, canDraw, task, changed, plan = () => []) {
+    this.plan = plan;
     this.canvas = canvas;
     this.canDraw = canDraw;
     this.task = task;
@@ -288,6 +302,7 @@ export class Drawing {
           ]
         : [],
       task,
+      this.plan(),
     );
   }
 }

@@ -1,6 +1,9 @@
+import { renderOverview, previewPlayers } from "./overview.js";
 import { SchemaEditor } from "./editor.js";
 import {
   DEFAULT_SCHEMA,
+  BUILTIN_SCHEMAS,
+  assignments,
   loadSchemas,
   storeSchemas,
   downloadSchema,
@@ -45,7 +48,7 @@ let host = false,
   editing = false;
 let customSchemas = loadSchemas();
 let schemaAuto = true;
-const schemas = () => [DEFAULT_SCHEMA, ...customSchemas];
+const schemas = () => [...BUILTIN_SCHEMAS, ...customSchemas];
 const selectedSchema = () =>
   schemas().find((s) => s.id === $("#schema-select").value) || DEFAULT_SCHEMA;
 const status = (text, cls = "warn") => {
@@ -77,6 +80,9 @@ const drawing = new Drawing(
   canDraw,
   () => own()?.task,
   (strokes) => save(draftKey, strokes),
+  () =>
+    state?.players.filter((p) => p.strip >= 0 && p.task).map((p) => p.task) ||
+    [],
 );
 function apply(next) {
   if (
@@ -211,6 +217,8 @@ function render() {
     : own()?.done
       ? "Готово! Ждём остальных…"
       : `Рисует ${state.players.find((p) => p.id === state.turn?.pid)?.name || "следующий игрок"}`;
+  renderOverview($("#scheme-overview"), state.players, me.id);
+  renderSchemaPreview();
   drawing.render();
   if (state.phase === "reveal" && state.reveal) {
     $("#reveal-word").textContent = state.reveal.word;
@@ -349,10 +357,12 @@ function updateSchemaSelect(selected) {
       return o;
     }),
   );
+  renderLibrary();
   if (selected) {
     el.value = selected;
     schemaAuto = false;
   }
+  renderSchemaPreview();
 }
 function leaveEditor() {
   editing = false;
@@ -412,7 +422,10 @@ $("#in-word").addEventListener("input", () => {
   const match = schemas().find((s) =>
     s.keywords.some((k) => k && word.includes(k.toLocaleLowerCase("ru"))),
   );
-  if (match && schemaAuto) $("#schema-select").value = match.id;
+  if (match && schemaAuto) {
+    $("#schema-select").value = match.id;
+    renderSchemaPreview();
+  }
 });
 updateSchemaSelect();
 
@@ -434,4 +447,48 @@ for (const button of document.querySelectorAll("[data-tool]"))
   };
 $("#shape-filled").onchange = (e) => (drawing.filled = e.target.checked);
 
-$("#schema-select").onchange = () => (schemaAuto = false);
+$("#schema-select").onchange = () => {
+  schemaAuto = false;
+  renderSchemaPreview();
+};
+
+function renderSchemaPreview() {
+  const schema = selectedSchema(),
+    n = Math.max(2, state?.players.length || 2);
+  renderOverview(
+    $("#lobby-schema-preview"),
+    previewPlayers(assignments(schema, n)),
+  );
+  $("#schema-summary").textContent =
+    `${schema.name} · ${n} ${n < 5 ? "фрагмента" : "фрагментов"}`;
+  document
+    .querySelectorAll(".schema-option")
+    .forEach((b) =>
+      b.classList.toggle("selected", b.dataset.schema === schema.id),
+    );
+}
+function renderLibrary() {
+  const library = $("#preset-library");
+  library.replaceChildren();
+  for (const schema of schemas()) {
+    const button = document.createElement("button");
+    button.className = "schema-option";
+    button.dataset.schema = schema.id;
+    const picture = document.createElement("div");
+    picture.className = "schema-thumbnail";
+    renderOverview(
+      picture,
+      previewPlayers(assignments(schema, 2)),
+      "preview-0",
+    );
+    const label = document.createElement("span");
+    label.textContent = schema.name;
+    button.append(picture, label);
+    button.onclick = () => {
+      $("#schema-select").value = schema.id;
+      schemaAuto = false;
+      renderSchemaPreview();
+    };
+    library.append(button);
+  }
+}

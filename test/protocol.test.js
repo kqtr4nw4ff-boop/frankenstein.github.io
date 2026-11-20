@@ -37,6 +37,7 @@ test("adjacent fragments share identical seam geometry and opposite directions",
   assert.equal(b.length, 1);
   assert.deepEqual(a[0].a, b[0].a);
   assert.deepEqual(a[0].b, b[0].b);
-  assert.equal(a[0].dx, -b[0].dx);
-  assert.equal(a[0].label, "Туловище");
+  assert.ok(a[0].dx === -b[0].dx && a[0].dy === -b[0].dy);
+  assert.equal(a[0].dy, -1);
+  assert.equal(a[0].label, "Шея");
 });
