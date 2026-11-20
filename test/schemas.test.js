@@ -84,8 +84,8 @@ test("adapts to 2–8 players without losing area or producing overlaps", () => 
 });
 
 test("every built-in has complete, disjoint assignments for 2–8 players", () => {
-  assert.equal(BUILTIN_SCHEMAS.length, 12);
-  assert.equal(new Set(BUILTIN_SCHEMAS.map((s) => s.id)).size, 12);
+  assert.equal(BUILTIN_SCHEMAS.length, 60);
+  assert.equal(new Set(BUILTIN_SCHEMAS.map((s) => s.id)).size, 60);
   for (const schema of BUILTIN_SCHEMAS) {
     const safe = validateSchema(schema);
     for (let count = 2; count <= 8; count++) {

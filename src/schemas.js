@@ -1,3 +1,4 @@
+import { validateContour } from "./contour.js";
 export { DEFAULT_SCHEMA, BUILTIN_SCHEMAS } from "./schema-presets.js";
 const finiteUnit = (n) => Number.isFinite(n) && n >= 0 && n <= 1;
 export function overlaps(a, b) {
@@ -92,6 +93,7 @@ export function validateSchema(data) {
     }
   }
   return {
+    ...(data.contour ? { contour: validateContour(data.contour) } : {}),
     ...(Object.keys(layouts).length ? { layouts } : {}),
     ...(data.reference ? { reference: data.reference } : {}),
     version: 1,

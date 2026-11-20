@@ -1,3 +1,4 @@
+import { SchemaDeck } from "./random.js";
 import { renderOverview, previewPlayers } from "./overview.js";
 import { SchemaEditor } from "./editor.js";
 import {
@@ -48,6 +49,7 @@ let host = false,
   editing = false;
 let customSchemas = loadSchemas();
 let schemaAuto = true;
+const randomDeck = new SchemaDeck();
 const schemas = () => [...BUILTIN_SCHEMAS, ...customSchemas];
 const selectedSchema = () =>
   schemas().find((s) => s.id === $("#schema-select").value) || DEFAULT_SCHEMA;
@@ -269,12 +271,20 @@ $("#b-join").onclick = () => {
   }
 };
 $("#b-start").onclick = () => {
-  if (game?.start($("#in-word").value, selectedSchema())) broadcast();
+  if (
+    game?.start(
+      $("#in-word").value,
+      selectedSchema(),
+      +$("#turn-seconds").value,
+    )
+  )
+    broadcast();
   else toast("Введите слово и пригласите второго игрока");
 };
 $("#b-again").onclick = () => {
   if (host) {
     game.again();
+    if ($("#random-each-round").checked) rollRandomSchema();
     broadcast();
   }
 };
@@ -342,7 +352,8 @@ setInterval(() => {
   const left = Math.max(0, state.turn.endsAt - Date.now() - clockOffset);
   $("#timer").style.display = state.turn.pid === me.id ? "block" : "none";
   $("#timer").textContent = Math.ceil(left / 1000);
-  $("#tbar").style.width = `${100 * (1 - left / TURN_MS)}%`;
+  $("#tbar").style.width =
+    `${100 * (1 - left / (state.turn.durationMs || TURN_MS))}%`;
   if (!left && state.turn.pid === me.id && !pending && !own()?.done) submit();
 }, 200);
 window.addEventListener("pagehide", () => net?.close());
@@ -394,7 +405,7 @@ $("#b-edit-schema").onclick = () => {
 };
 $("#b-change-schema").onclick = () => {
   editing = true;
-  editor.open(selectedSchema());
+  editor.open(selectedSchema(), Math.max(2, state?.players.length || 2));
   show("editor");
 };
 $("#b-export-schema").onclick = () => downloadSchema(selectedSchema());
@@ -418,10 +429,13 @@ $("#schema-file").onchange = async (e) => {
   e.target.value = "";
 };
 $("#in-word").addEventListener("input", () => {
+  $("#random-each-round").checked = false;
   const word = $("#in-word").value.toLocaleLowerCase("ru");
-  const match = schemas().find((s) =>
-    s.keywords.some((k) => k && word.includes(k.toLocaleLowerCase("ru"))),
-  );
+  const match =
+    schemas().find((s) => word.includes(s.name.toLocaleLowerCase("ru"))) ||
+    schemas().find((s) =>
+      s.keywords.some((k) => k && word.includes(k.toLocaleLowerCase("ru"))),
+    );
   if (match && schemaAuto) {
     $("#schema-select").value = match.id;
     renderSchemaPreview();
@@ -449,6 +463,7 @@ $("#shape-filled").onchange = (e) => (drawing.filled = e.target.checked);
 
 $("#schema-select").onchange = () => {
   schemaAuto = false;
+  $("#random-each-round").checked = false;
   renderSchemaPreview();
 };
 
@@ -487,8 +502,29 @@ function renderLibrary() {
     button.onclick = () => {
       $("#schema-select").value = schema.id;
       schemaAuto = false;
+      $("#random-each-round").checked = false;
       renderSchemaPreview();
     };
     library.append(button);
   }
 }
+
+function rollRandomSchema() {
+  const schema = randomDeck.draw(schemas());
+  $("#schema-select").value = schema.id;
+  $("#in-word").value = schema.name;
+  schemaAuto = false;
+  renderSchemaPreview();
+  $("#random-hint").textContent =
+    `Без повторов: ещё ${randomDeck.bag.length} в колоде`;
+}
+$("#b-random-schema").onclick = () => {
+  $("#random-each-round").checked = true;
+  rollRandomSchema();
+};
+$("#random-each-round").onchange = (e) => {
+  if (e.target.checked) rollRandomSchema();
+};
+for (const el of document.querySelectorAll("[data-preset-count]"))
+  el.textContent = BUILTIN_SCHEMAS.length;
+$("#more-presets").textContent = `+${BUILTIN_SCHEMAS.length - 3} идей`;

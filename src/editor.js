@@ -1,3 +1,4 @@
+import { validateContour, simplifyContour, sliceContour } from "./contour.js";
 import {
   validateSchema,
   overlaps,
@@ -12,6 +13,7 @@ export class SchemaEditor {
     this.canvas = document.querySelector("#editor-canvas");
     this.ctx = this.canvas.getContext("2d");
     this.mode = "regions";
+    this.contour = null;
     this.regions = [];
     this.anchors = [];
     this.history = [];
@@ -22,12 +24,34 @@ export class SchemaEditor {
     $("#editor-cancel").onclick = onCancel;
     $("#editor-regions").onclick = () => this.setMode("regions");
     $("#editor-anchors").onclick = () => this.setMode("anchors");
+    $("#editor-contour").onclick = () => this.setMode("contour");
+    $("#contour-generate").onclick = () => {
+      try {
+        if (!this.contour) throw Error("Сначала обведи силуэт на подложке");
+        const layout = sliceContour(
+          this.contour,
+          +$("#contour-count").value,
+          $("#contour-axis").value,
+        );
+        this.remember();
+        this.regions = layout.regions;
+        this.anchors = layout.anchors;
+        this.pendingAnchor = null;
+        this.list();
+        this.draw();
+        this.setMode("regions");
+        toast("Части и стыки готовы. Проверь и подпиши задания ниже.");
+      } catch (e) {
+        toast(e.message);
+      }
+    };
     $("#editor-undo").onclick = () => {
       const old = this.history.pop();
       if (old) {
         this.regions = old.regions;
         this.anchors = old.anchors;
         this.pendingAnchor = null;
+        this.contour = old.contour || null;
         this.list();
         this.draw();
       }
@@ -48,6 +72,7 @@ export class SchemaEditor {
         regions: this.regions,
         anchors: this.anchors,
         ...(this.reference ? { reference: this.reference } : {}),
+        ...(this.contour ? { contour: this.contour } : {}),
       });
     };
     $("#editor-export").onclick = () => {
@@ -98,6 +123,11 @@ export class SchemaEditor {
       if (this.start || e.button !== 0) return;
       const p = this.point(e);
       this.canvas.setPointerCapture(e.pointerId);
+      if (this.mode === "contour") {
+        this.start = { ...p, pointer: e.pointerId };
+        this.contourDraft = [[p.x, p.y]];
+        return;
+      }
       if (this.mode === "anchors") {
         this.remember();
         const near = this.anchors.findIndex(
@@ -167,6 +197,17 @@ export class SchemaEditor {
       this.end = p;
     });
     this.canvas.addEventListener("pointermove", (e) => {
+      if (this.mode === "contour" && this.start?.pointer === e.pointerId) {
+        const p = this.point(e),
+          last = this.contourDraft.at(-1);
+        if (
+          this.contourDraft.length < 800 &&
+          Math.hypot(p.x - last[0], p.y - last[1]) > 0.002
+        )
+          this.contourDraft.push([p.x, p.y]);
+        this.draw();
+        return;
+      }
       if (this.start?.pointer === e.pointerId) {
         this.end = this.point(e);
         this.draw();
@@ -174,6 +215,20 @@ export class SchemaEditor {
     });
     this.canvas.addEventListener("pointerup", (e) => {
       if (this.start?.pointer !== e.pointerId) return;
+      if (this.mode === "contour") {
+        try {
+          const contour = validateContour(simplifyContour(this.contourDraft));
+          this.remember();
+          this.contour = contour;
+          toast("Силуэт готов. Выбери число частей и нажми «Разбить».");
+        } catch (e) {
+          toast(e.message);
+        }
+        this.start = null;
+        this.contourDraft = null;
+        this.draw();
+        return;
+      }
       const r = this.rectangle(this.start, this.point(e));
       this.start = null;
       this.end = null;
@@ -209,11 +264,12 @@ export class SchemaEditor {
     for (const event of ["pointercancel", "lostpointercapture"])
       this.canvas.addEventListener(event, () => {
         this.start = null;
+        this.contourDraft = null;
         this.end = null;
         this.draw();
       });
   }
-  open(schema = null) {
+  open(schema = null, count = 0) {
     this.image?.close();
     this.image = null;
     this.reference = schema?.reference;
@@ -221,12 +277,23 @@ export class SchemaEditor {
       schema && !BUILTIN_SCHEMAS.some((s) => s.id === schema.id)
         ? schema.id
         : crypto.randomUUID();
-    this.regions = structuredClone(schema?.regions || []);
-    this.anchors = structuredClone(schema?.anchors || []);
+    const layout = schema?.layouts?.[count] || schema;
+    this.regions = structuredClone(layout?.regions || []);
+    this.anchors = structuredClone(layout?.anchors || []);
+    this.contour = structuredClone(schema?.contour || null);
+    this.contourDraft = null;
+    document.querySelector("#contour-count").value = String(
+      Math.max(2, count || 2),
+    );
     this.history = [];
     this.pendingAnchor = null;
     this.start = null;
-    document.querySelector("#schema-name").value = schema?.name || "";
+    document.querySelector("#schema-name").value = schema
+      ? schema.name +
+        (BUILTIN_SCHEMAS.some((s) => s.id === schema.id)
+          ? " · своя версия"
+          : "")
+      : "";
     document.querySelector("#schema-keywords").value =
       schema?.keywords.join(", ") || "";
     this.setMode("regions");
@@ -252,16 +319,24 @@ export class SchemaEditor {
     this.mode = mode;
     document.querySelector("#editor-regions").className =
       mode === "regions" ? "btn2" : "ghost";
+    document.querySelector("#editor-contour").className =
+      mode === "contour" ? "btn2" : "ghost";
     document.querySelector("#editor-anchors").className =
       mode === "anchors" ? "btn2" : "ghost";
     document.querySelector("#editor-help").textContent =
-      mode === "regions"
-        ? "Потяни по картинке, чтобы выделить область. Затем подпиши задание. Края примагничиваются друг к другу."
-        : "Подпиши стык и отметь две его крайние точки на одной границе — например, левый и правый край шеи. Нажатие на существующую метку удаляет весь стык.";
+      mode === "contour"
+        ? "Обведи внешний силуэт одним движением. Контур замкнётся сам. Затем выбери направление и число частей. Подписи частей нужно проверить вручную."
+        : mode === "regions"
+          ? "Потяни по картинке, чтобы выделить область. Затем подпиши задание. Края примагничиваются друг к другу."
+          : "Подпиши стык и отметь две его крайние точки на одной границе — например, левый и правый край шеи. Нажатие на существующую метку удаляет весь стык.";
   }
   remember() {
     this.history.push(
-      structuredClone({ regions: this.regions, anchors: this.anchors }),
+      structuredClone({
+        regions: this.regions,
+        anchors: this.anchors,
+        contour: this.contour,
+      }),
     );
     if (this.history.length > 60) this.history.shift();
   }
@@ -339,6 +414,20 @@ export class SchemaEditor {
       c.globalAlpha = 0.65;
       c.drawImage(this.image, (W - w) / 2, (H - h) / 2, w, h);
       c.globalAlpha = 1;
+    }
+    const contour = this.contourDraft || this.contour;
+    if (contour?.length) {
+      c.beginPath();
+      c.moveTo(contour[0][0] * W, contour[0][1] * H);
+      for (const [x, y] of contour.slice(1)) c.lineTo(x * W, y * H);
+      c.closePath();
+      c.fillStyle = "#6c936c20";
+      c.fill();
+      c.strokeStyle = "#416f4d";
+      c.lineWidth = 5;
+      c.setLineDash([12, 8]);
+      c.stroke();
+      c.setLineDash([]);
     }
     const regions = [
       ...this.regions,

@@ -38,8 +38,8 @@
         <div class="hero">
           <div class="hero-copy">
             <span class="eyebrow"
-              ><span class="tiny-spark">✳</span> 2–8 друзей · 75 секунд на
-              фрагмент</span
+              ><span class="tiny-spark">✳</span> 2–8 друзей · время выбираете
+              сами</span
             >
             <h1>Твоя часть.<br />Общий <span>шедевр.</span></h1>
             <p class="hero-description">
@@ -190,11 +190,12 @@
             <h2>Звери бывают всякие.<br />Твои — особенно.</h2>
             <p class="sub">
               Кот с характером, дракон на выходных или медуза-дискотека. Выбери
-              одну из 12 схем или придумай собственную.
+              одну из <span data-preset-count>60</span> схем или придумай
+              собственную.
             </p>
             <div class="preset-tags">
               <span>Кот</span><span>Дракон</span><span>Осьминог</span
-              ><span>+9 идей</span>
+              ><span id="more-presets">+57 идей</span>
             </div>
             <button class="ghost" id="home-editor">
               Открыть мастерскую <span aria-hidden="true">↗</span>
@@ -237,13 +238,45 @@
             <div id="host-word-box">
               <span class="section-number">ТОЛЬКО ДЛЯ ВЕДУЩЕГО</span>
               <h2>Кого сегодня собираем?</h2>
+              <div class="round-settings">
+                <label for="turn-seconds">Время на фрагмент</label
+                ><select id="turn-seconds" aria-label="Время на фрагмент">
+                  <option value="10">10 секунд</option>
+                  <option value="20">20 секунд</option>
+                  <option value="30">30 секунд</option>
+                  <option value="40">40 секунд</option>
+                  <option value="50">50 секунд</option>
+                  <option value="60" selected>60 секунд</option>
+                  <option value="70">70 секунд</option>
+                  <option value="80">80 секунд</option>
+                  <option value="90">90 секунд</option>
+                  <option value="100">100 секунд</option>
+                  <option value="110">110 секунд</option>
+                  <option value="120">120 секунд</option>
+                  <option value="130">130 секунд</option>
+                  <option value="140">140 секунд</option>
+                  <option value="150">150 секунд</option>
+                  <option value="160">160 секунд</option>
+                  <option value="170">170 секунд</option>
+                  <option value="180">180 секунд</option></select
+                ><span>Одинаково для всех в этом раунде</span>
+              </div>
               <label for="in-word">Секретное слово</label
               ><input
                 id="in-word"
                 placeholder="Например, кот-космонавт"
                 maxlength="100"
                 autocomplete="off"
-              /><label for="schema-select">Схема тела</label
+              />
+              <div class="random-controls">
+                <button class="btn2" id="b-random-schema">
+                  ⚄ Случайный зверь</button
+                ><label
+                  ><input type="checkbox" id="random-each-round" />Новый
+                  случайный зверь каждый раунд</label
+                ><span id="random-hint">Игра выбирает, вы удивляетесь.</span>
+              </div>
+              <label for="schema-select">Схема тела</label
               ><select id="schema-select"></select>
               <div class="schema-preview-row">
                 <div id="lobby-schema-preview"></div>
@@ -332,7 +365,7 @@
             </div>
             <div class="wrap">
               <div class="tbar" id="tbar"></div>
-              <div class="timer" id="timer" style="display: none">75</div>
+              <div class="timer" id="timer" style="display: none">60</div>
               <canvas
                 id="cv"
                 width="2000"
@@ -454,11 +487,33 @@
                 hidden
             /></label>
             <div class="row">
+              <button class="ghost" id="editor-contour">Обвести силуэт</button>
               <button class="btn2" id="editor-regions">1. Выделить части</button
               ><button class="ghost" id="editor-anchors">
                 2. Поставить стыки</button
               ><button class="ghost" id="editor-undo">↶ Отменить</button>
             </div>
+          </div>
+          <div class="contour-generator">
+            <strong>Из силуэта → в схему</strong
+            ><label
+              >Частей<select id="contour-count">
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+              </select></label
+            ><label
+              >Направление<select id="contour-axis">
+                <option value="y">Сверху вниз</option>
+                <option value="x">Слева направо</option>
+              </select></label
+            ><button class="btn2" id="contour-generate">
+              Разбить на части ↗</button
+            ><span>Создаст области и стыки. Названия проверь вручную.</span>
           </div>
           <div class="anchor-setting">
             <label for="anchor-label">Название стыка</label

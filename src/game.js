@@ -1,5 +1,5 @@
 import { DEFAULT_SCHEMA, assignments } from "./schemas.js";
-export const TURN_MS = 75000;
+export const TURN_MS = 60000;
 export const MAX_PLAYERS = 8;
 export const MAX_POINTS = 4000;
 export const id = () => crypto.randomUUID();
@@ -67,14 +67,19 @@ export class Game {
     });
     return true;
   }
-  start(word, schema = DEFAULT_SCHEMA) {
+  start(word, schema = DEFAULT_SCHEMA, seconds = TURN_MS / 1000) {
     if (
       this.state.phase !== "lobby" ||
       this.state.players.length < 2 ||
-      !word.trim()
+      !word.trim() ||
+      !Number.isInteger(seconds) ||
+      seconds < 10 ||
+      seconds > 180 ||
+      seconds % 10 !== 0
     )
       return false;
     const tasks = assignments(schema, this.state.players.length);
+    this.turnMs = seconds * 1000;
     this.word = word.trim().slice(0, 100);
     this.drawings.clear();
     const order = [...this.state.players];
@@ -99,7 +104,8 @@ export class Game {
       this.state.turn = {
         pid: p.id,
         strip: p.strip,
-        endsAt: this.now() + TURN_MS,
+        durationMs: this.turnMs,
+        endsAt: this.now() + this.turnMs,
       };
     else {
       this.state.phase = "reveal";
